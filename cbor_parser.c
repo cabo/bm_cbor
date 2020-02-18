@@ -137,7 +137,7 @@ int cbor_skip(const uint8_t **p, const uint8_t *end) {
             break;
         case CBOR_TYPE_TSTR:
         case CBOR_TYPE_BSTR:
-            if ((*p) + val.ref.length <= end) {
+            if (end - (*p) <= val.ref.length) {
                 (*p) += val.ref.length;
             } else {
                 SET_ERROR(rc, CBOR_ERR_OVERRUN);
