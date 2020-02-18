@@ -87,6 +87,20 @@ int cbor_extract_ref(const uint8_t **p, const uint8_t *end, cbor_value_t *val) {
     return rc;
 }
 
+/* superset of cbor_extract_ref */
+int cbor_extract_stringref(const uint8_t **p, const uint8_t *end, cbor_value_t *val) {
+    int rc = cbor_get_argument(p, end, &(val->ref.length));
+    if (rc == CBOR_ERR_NONE) {
+        val->ref.ptr = *p;
+        if (end - (*p) <= val->ref.length) {
+          (*p) += val->ref.length;
+        } else {
+          SET_ERROR(rc, CBOR_ERR_OVERRUN);
+        }
+    }
+    return rc;
+}
+
 int cbor_extract_tag(const uint8_t **p, const uint8_t *end, cbor_value_t *val) {
     RETURN_ERROR(CBOR_ERR_UNIMPLEMENTED);
 }
@@ -96,8 +110,6 @@ int cbor_extract_primitive(const uint8_t **p, const uint8_t *end, cbor_value_t *
     (*p)++;
     RETURN_ERROR(CBOR_ERR_NONE);
 }
-
-
 
 int cbor_check_type_extract_ref(const uint8_t **p, const uint8_t *end, cbor_value_t *o_val, const uint8_t cbor_type) {
     if ((**p & CBOR_TYPE_MASK) != cbor_type) {
@@ -112,8 +124,8 @@ int cbor_check_type_extract_ref(const uint8_t **p, const uint8_t *end, cbor_valu
 int (*cbor_extractors[])(const uint8_t **p, const uint8_t *end, cbor_value_t *val) = {
     cbor_extract_uint,
     cbor_extract_int,
-    cbor_extract_ref,
-    cbor_extract_ref,
+    cbor_extract_stringref,
+    cbor_extract_stringref,
     cbor_extract_ref,
     cbor_extract_ref,
     cbor_extract_tag,
@@ -134,15 +146,10 @@ int cbor_skip(const uint8_t **p, const uint8_t *end) {
     switch (ct) {
         case CBOR_TYPE_UINT:
         case CBOR_TYPE_NINT:
-            break;
         case CBOR_TYPE_TSTR:
         case CBOR_TYPE_BSTR:
-            if (end - (*p) <= val.ref.length) {
-                (*p) += val.ref.length;
-            } else {
-                SET_ERROR(rc, CBOR_ERR_OVERRUN);
-            }
-            break;
+        case CBOR_TYPE_SIMPLE:
+            break;    /* argument only */
         case CBOR_TYPE_MAP:
             val.ref.length *= 2;
             // no break;
