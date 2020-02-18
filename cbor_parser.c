@@ -19,13 +19,12 @@
 
 #include <stdio.h>
 #include <inttypes.h>
-#include <string.h>
 
-int cbor_get_as_uint64(const uint8_t** p, const uint8_t* end, uint64_t* n){
+int cbor_get_argument(const uint8_t** p, const uint8_t* end, uint64_t* n){
     if (*p >= end) {
         RETURN_ERROR(CBOR_ERR_OVERRUN);
     }
-    uint8_t iv = **p & ~CBOR_TYPE_MAX;
+    uint8_t iv = **p & ~CBOR_TYPE_MASK;
     if (iv >= 28){
         RETURN_ERROR(CBOR_ERR_INTEGER_ENCODING);
     }
@@ -44,22 +43,25 @@ int cbor_get_as_uint64(const uint8_t** p, const uint8_t* end, uint64_t* n){
     return CBOR_ERR_NONE;
 }
 int cbor_get_uint64(const uint8_t** p, const uint8_t* end, uint64_t* n){
-    uint8_t type = **p & CBOR_TYPE_MAX;
+    uint8_t type = **p & CBOR_TYPE_MASK;
     if (type != CBOR_TYPE_UINT) {
         RETURN_ERROR(CBOR_ERR_TYPE_MISMATCH);
     }
-    return cbor_get_as_uint64(p, end, n);
+    return cbor_get_argument(p, end, n);
 }
 
 int cbor_get_int64(const uint8_t** p, const uint8_t* end, int64_t* n) {
-    uint8_t type = **p & CBOR_TYPE_MAX;
+    uint8_t type = **p & CBOR_TYPE_MASK;
     if (type != CBOR_TYPE_NINT && type != CBOR_TYPE_UINT) {
         RETURN_ERROR(CBOR_ERR_TYPE_MISMATCH);
     }
     uint64_t uv;
-    int rc = cbor_get_as_uint64(p, end, &uv);
+    int rc = cbor_get_argument(p, end, &uv);
     if (rc != CBOR_ERR_NONE) {
         return rc;
+    }
+    if (uv >> 63 != 0) {
+        RETURN_ERROR(CBOR_ERR_INTEGER_DECODE_OVERFLOW);
     }
     if (type == CBOR_TYPE_NINT) {
         *n = -1 - (int64_t)uv;
@@ -69,13 +71,13 @@ int cbor_get_int64(const uint8_t** p, const uint8_t* end, int64_t* n) {
     return rc;
 }
 
-int cbor_extract_uint(
-    const uint8_t **p,
+int cbor_extract_uint(const uint8_t **p,
     const uint8_t *end,
     cbor_value_t *val)
 {
-    return cbor_get_as_uint64(p, end, &(val->u64));
+    return cbor_get_argument(p, end, &(val->u64));
 }
+
 int cbor_extract_int(
     const uint8_t **p,
     const uint8_t *end,
@@ -90,7 +92,7 @@ int cbor_extract_ref(
     cbor_value_t *val
     )
 {
-    int rc = cbor_get_as_uint64(p, end, &(val->ref.length));
+    int rc = cbor_get_argument(p, end, &(val->ref.length));
     if (rc == CBOR_ERR_NONE) {
         val->ref.ptr = *p;
     }
@@ -104,12 +106,13 @@ int cbor_extract_tag(
 {
     RETURN_ERROR(CBOR_ERR_UNIMPLEMENTED);
 }
+
 int cbor_extract_primitive(
     const uint8_t **p,
     const uint8_t *end,
     cbor_value_t *val)
 {
-    val->primitive = (**p & (~CBOR_TYPE_MAX));
+    val->primitive = (**p & (~CBOR_TYPE_MASK));
     (*p)++;
     RETURN_ERROR(CBOR_ERR_NONE);
 }
@@ -122,8 +125,8 @@ int cbor_check_type_extract_ref(
         cbor_value_t *o_val,
         const uint8_t cbor_type
 ) {
-    if ((**p & CBOR_TYPE_MAX) != cbor_type) {
-        PD_PRINTF("Expected: %u Actual %u\n", (unsigned) cbor_type>>5, (unsigned)(**p & CBOR_TYPE_MAX)>>5);
+    if ((**p & CBOR_TYPE_MASK) != cbor_type) {
+        PD_PRINTF("Expected: %u Actual %u\n", (unsigned) cbor_type>>5, (unsigned)(**p & CBOR_TYPE_MASK)>>5);
 
         RETURN_ERROR(CBOR_ERR_TYPE_MISMATCH);
     }
@@ -148,7 +151,7 @@ int (*cbor_extractors[])(
 
 int cbor_skip(const uint8_t **p, const uint8_t *end)
 {
-    uint8_t ct = **p & CBOR_TYPE_MAX;
+    uint8_t ct = **p & CBOR_TYPE_MASK;
     size_t handler_index = ct >> 5;
     cbor_value_t val;
     int rc = cbor_extractors[handler_index](p, end, &val);
