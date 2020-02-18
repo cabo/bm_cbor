@@ -29,7 +29,8 @@
 #define CBOR_TYPE_MAP (5 << 5)
 #define CBOR_TYPE_TAG (6 << 5)
 #define CBOR_TYPE_SIMPLE (7 << 5)
-#define CBOR_TYPE_MAX (7 << 5)
+
+#define CBOR_TYPE_MASK (7 << 5)
 
 #define CBOR_FALSE (CBOR_TYPE_SIMPLE | 20)
 #define CBOR_TRUE (CBOR_TYPE_SIMPLE | 21)
@@ -106,4 +107,4 @@ int cbor_skip(const uint8_t **p, const uint8_t *end);
 }
 #endif
 
-#endif // _SUIT_PARSER_H_
+#endif // _CBOR_PARSER_H_
